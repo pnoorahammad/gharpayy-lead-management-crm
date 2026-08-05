@@ -161,6 +161,22 @@
     background-color: var(--color-background);
     color: var(--color-foreground);
   }
+  
+  /* Enforce interactive pointer cursors globally */
+  button,
+  a,
+  select,
+  summary,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  [role="checkbox"],
+  .cursor-pointer,
+  .interactive-card {
+    cursor: pointer !important;
+  }
+
   .font-display {
     font-family: var(--font-display);
   }
