@@ -1,14 +1,22 @@
 import type { Lead, LeadNote, LeadPriority, LeadStage } from "./types";
 
+const DEFAULT_BACKEND_URL = "https://gharpayy-crm-api.onrender.com/api";
+
 function getApiUrl(path: string): string {
-  const envUrl = import.meta.env.VITE_API_URL || "";
-  if (envUrl.startsWith("http://") || envUrl.startsWith("https://")) {
-    return `${envUrl.replace(/\/$/, "")}${path}`;
+  const envUrl = import.meta.env.VITE_API_URL || DEFAULT_BACKEND_URL;
+  const baseUrl = envUrl.replace(/\/$/, "");
+
+  // If envUrl already ends with /api and path starts with /api, strip redundant /api
+  if (baseUrl.endsWith("/api") && path.startsWith("/api")) {
+    return `${baseUrl}${path.replace(/^\/api/, "")}`;
   }
-  if (typeof window !== "undefined") {
-    return `${window.location.origin}${path}`;
+
+  // If path doesn't start with /api and baseUrl doesn't end with /api
+  if (!baseUrl.endsWith("/api") && !path.startsWith("/api")) {
+    return `${baseUrl}/api${path}`;
   }
-  return `http://localhost:5000${path}`;
+
+  return `${baseUrl}${path}`;
 }
 
 export async function fetchBackendLeads(params?: { q?: string; stage?: string; priority?: string; sortBy?: string }) {
