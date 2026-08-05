@@ -1,17 +1,15 @@
 import type { Lead, LeadNote, LeadPriority, LeadStage } from "./types";
 
-const DEFAULT_BACKEND_URL = "https://gharpayy-crm-api.onrender.com/api";
+const RENDER_BACKEND_URL = "https://gharpayy-lead-management-crm.onrender.com/api";
 
 function getApiUrl(path: string): string {
-  const envUrl = import.meta.env.VITE_API_URL || DEFAULT_BACKEND_URL;
+  const envUrl = import.meta.env.VITE_API_URL || RENDER_BACKEND_URL;
   const baseUrl = envUrl.replace(/\/$/, "");
 
-  // If envUrl already ends with /api and path starts with /api, strip redundant /api
   if (baseUrl.endsWith("/api") && path.startsWith("/api")) {
     return `${baseUrl}${path.replace(/^\/api/, "")}`;
   }
 
-  // If path doesn't start with /api and baseUrl doesn't end with /api
   if (!baseUrl.endsWith("/api") && !path.startsWith("/api")) {
     return `${baseUrl}/api${path}`;
   }
@@ -29,8 +27,13 @@ export async function fetchBackendLeads(params?: { q?: string; stage?: string; p
         if (val) url.searchParams.append(key, val);
       });
     }
-    const res = await fetch(url.toString());
-    if (!res.ok) return null;
+    const res = await fetch(url.toString(), {
+      headers: { "Content-Type": "application/json" },
+    });
+    if (!res.ok) {
+      console.warn(`Backend GET /api/leads returned status ${res.status}`);
+      return null;
+    }
     const data = await res.json();
     return Array.isArray(data?.leads) ? (data.leads as Lead[]) : null;
   } catch (err) {

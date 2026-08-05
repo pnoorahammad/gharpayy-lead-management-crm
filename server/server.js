@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 5000;
 const DATA_FILE = path.join(__dirname, "leads_db.json");
 
 // Middleware
-app.use(cors());
+app.use(cors({ origin: "*", credentials: true }));
 app.use(express.json());
 
 // Request logging middleware
@@ -28,6 +28,7 @@ const SUPABASE_URL =
   process.env.VITE_SUPABASE_URL ||
   "https://qiluyabnizuwzrbslwzr.supabase.co";
 const SUPABASE_KEY =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
   process.env.SUPABASE_SECRET_KEY ||
   process.env.SUPABASE_PUBLISHABLE_KEY ||
   process.env.VITE_SUPABASE_ANON_KEY ||
@@ -39,7 +40,7 @@ if (SUPABASE_URL && SUPABASE_KEY) {
     supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
     console.log("Supabase client initialized successfully for production DB.");
   } catch (err) {
-    console.warn("Supabase initialization error, falling back to JSON DB:", err.message);
+    console.warn("Supabase initialization warning:", err.message);
   }
 }
 
@@ -149,9 +150,9 @@ function saveLeads(leads) {
   }
 }
 
-// ---------------- SERVER ROUTES ----------------
+// ---------------- ROUTES ----------------
 
-// Root Route - Fixes "Cannot GET /"
+// Root Endpoint - Fixes "Cannot GET /"
 app.get("/", (req, res) => {
   res.json({
     status: "ok",
@@ -168,7 +169,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// Health Check Routes - Fixes Render Health Checks
+// Health Probes
 app.get(["/health", "/api/health"], async (req, res) => {
   let dbStatus = "connected";
   if (supabase) {
@@ -187,20 +188,22 @@ app.get(["/health", "/api/health"], async (req, res) => {
   });
 });
 
-// 1. GET /api/leads - Query, Filter, Sort Leads
+// GET /api/leads - Search, Filter, Sort
 app.get("/api/leads", async (req, res) => {
   try {
     let leads = [];
 
-    // Try Supabase first
     if (supabase) {
-      const { data, error } = await supabase.from("leads").select("*");
-      if (!error && data && data.length > 0) {
-        leads = data;
+      try {
+        const { data, error } = await supabase.from("leads").select("*");
+        if (!error && data && data.length > 0) {
+          leads = data;
+        }
+      } catch (sbErr) {
+        console.warn("Supabase fetch warning:", sbErr.message);
       }
     }
 
-    // Fallback to local JSON store if empty or not configured
     if (leads.length === 0) {
       leads = loadLeads();
     }
@@ -236,14 +239,14 @@ app.get("/api/leads", async (req, res) => {
       });
     }
 
-    res.json({ success: true, count: leads.length, leads });
+    res.status(200).json({ success: true, count: leads.length, leads });
   } catch (err) {
-    console.error("GET /api/leads Error:", err);
-    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+    console.error("GET /api/leads Exception:", err);
+    res.status(500).json({ success: false, message: "Failed to fetch leads", error: err.message });
   }
 });
 
-// 2. POST /api/leads - Create Lead
+// POST /api/leads - Create Lead
 app.post("/api/leads", async (req, res) => {
   try {
     const { name, phone, email, source, budget, preferredArea, moveInDate, intent, priority, stage, assignedTcmId } = req.body;
@@ -275,12 +278,10 @@ app.post("/api/leads", async (req, res) => {
       updatedAt: nowIso,
     };
 
-    // Save to local JSON DB
     const leads = loadLeads();
     leads.unshift(newLead);
     saveLeads(leads);
 
-    // Save to Supabase DB if available
     if (supabase) {
       try {
         await supabase.from("leads").insert([newLead]);
@@ -291,22 +292,22 @@ app.post("/api/leads", async (req, res) => {
 
     res.status(201).json({ success: true, lead: newLead });
   } catch (err) {
-    console.error("POST /api/leads Error:", err);
-    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+    console.error("POST /api/leads Exception:", err);
+    res.status(500).json({ success: false, message: "Failed to create lead", error: err.message });
   }
 });
 
-// 3. GET /api/leads/:id - Single Lead
+// GET /api/leads/:id - Single Lead
 app.get("/api/leads/:id", (req, res) => {
   const leads = loadLeads();
   const lead = leads.find((l) => l.id === req.params.id);
   if (!lead) {
     return res.status(404).json({ success: false, message: "Lead not found" });
   }
-  res.json({ success: true, lead });
+  res.status(200).json({ success: true, lead });
 });
 
-// 4. PUT /api/leads/:id - Update Lead
+// PUT /api/leads/:id - Update Lead
 app.put("/api/leads/:id", async (req, res) => {
   try {
     const leads = loadLeads();
@@ -332,14 +333,14 @@ app.put("/api/leads/:id", async (req, res) => {
       }
     }
 
-    res.json({ success: true, lead: updatedLead });
+    res.status(200).json({ success: true, lead: updatedLead });
   } catch (err) {
-    console.error("PUT /api/leads/:id Error:", err);
-    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+    console.error("PUT /api/leads/:id Exception:", err);
+    res.status(500).json({ success: false, message: "Failed to update lead", error: err.message });
   }
 });
 
-// 5. DELETE /api/leads/:id - Delete Lead
+// DELETE /api/leads/:id - Delete Lead
 app.delete("/api/leads/:id", async (req, res) => {
   try {
     let leads = loadLeads();
@@ -359,14 +360,14 @@ app.delete("/api/leads/:id", async (req, res) => {
       }
     }
 
-    res.json({ success: true, message: `Lead ${req.params.id} deleted` });
+    res.status(200).json({ success: true, message: `Lead ${req.params.id} deleted` });
   } catch (err) {
-    console.error("DELETE /api/leads/:id Error:", err);
-    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+    console.error("DELETE /api/leads/:id Exception:", err);
+    res.status(500).json({ success: false, message: "Failed to delete lead", error: err.message });
   }
 });
 
-// 6. POST /api/leads/:id/notes - Add Note to Lead
+// POST /api/leads/:id/notes - Add Note
 app.post("/api/leads/:id/notes", async (req, res) => {
   try {
     const { text, author } = req.body;
@@ -396,12 +397,12 @@ app.post("/api/leads/:id/notes", async (req, res) => {
 
     res.status(201).json({ success: true, note, notes: lead.notes });
   } catch (err) {
-    console.error("POST /api/leads/:id/notes Error:", err);
-    res.status(500).json({ success: false, message: "Internal server error", error: err.message });
+    console.error("POST /api/leads/:id/notes Exception:", err);
+    res.status(500).json({ success: false, message: "Failed to add note", error: err.message });
   }
 });
 
-// 7. GET /api/stats - Dashboard Analytics
+// GET /api/stats - Analytics
 app.get("/api/stats", (req, res) => {
   const leads = loadLeads();
   const total = leads.length;
@@ -409,7 +410,7 @@ app.get("/api/stats", (req, res) => {
   const pending = leads.filter((l) => l.stage !== "booked" && l.stage !== "dropped").length;
   const highPriority = leads.filter((l) => l.priority === "high").length;
 
-  res.json({
+  res.status(200).json({
     success: true,
     stats: {
       totalLeads: total,
@@ -421,22 +422,22 @@ app.get("/api/stats", (req, res) => {
   });
 });
 
-// Serve static frontend files if built in dist (for single-instance deployment)
-const distPath = path.join(__dirname, "../dist");
-if (fs.existsSync(distPath)) {
-  app.use(express.static(distPath));
+// Serve static frontend files if built in dist/client
+const distClientPath = path.join(__dirname, "../dist/client");
+if (fs.existsSync(distClientPath)) {
+  app.use(express.static(distClientPath));
   app.get("*", (req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
+    res.sendFile(path.join(distClientPath, "index.html"));
   });
 }
 
-// Global Express Error Handler Middleware
+// Centralized Express Error Handler Middleware
 app.use((err, req, res, next) => {
-  console.error("Global Server Exception:", err.stack);
-  res.status(500).json({
+  console.error("Centralized Express Exception Handler:", err.stack || err);
+  res.status(err.status || 500).json({
     success: false,
-    message: "Internal Server Error",
-    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+    message: err.message || "Internal Server Error",
+    status: err.status || 500,
   });
 });
 
