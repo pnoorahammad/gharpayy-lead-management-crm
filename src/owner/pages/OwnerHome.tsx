@@ -183,9 +183,9 @@ export function OwnerHome() {
   const toursScheduledCount = tours.filter((t) => t.type === "team.visit.scheduled").length;
 
   const selectOwner = (id: string) =>
-    navigate({ to: "/owner", search: (prev: Record<string, unknown>) => ({ ...prev, id }) });
+    navigate({ to: "/owner", search: (prev) => ({ id, tab: prev?.tab }) });
   const selectTab = (id: TabId) =>
-    navigate({ to: "/owner", search: (prev: Record<string, unknown>) => ({ ...prev, tab: id }) });
+    navigate({ to: "/owner", search: (prev) => ({ id: prev?.id, tab: id }) });
 
   const verifyAllUnchanged = () => {
     allRooms.forEach((r) => verifyRoomToday(r.id));

@@ -9,6 +9,7 @@ import { useMountedNow } from "@/hooks/use-now";
 import { buildDoNextQueue, liveConfidence, intentFor } from "@/lib/engine";
 import { scanRevivals } from "@/lib/revival";
 import { QuickActionRow } from "@/components/QuickActionRow";
+import { DashboardCharts } from "@/components/dashboard/DashboardCharts";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -79,12 +80,15 @@ function DashboardPage() {
 
         {/* KPIs */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <KpiCard label="Active leads" value={liveLeads.filter((l) => l.stage !== "booked" && l.stage !== "dropped").length} sub={`${hotLeads.length} hot · live score`} />
-          <KpiCard label="Today's tours" value={todayTours.length} sub="Scheduled" tone="accent" />
-          <KpiCard label="Overdue follow-ups" value={overdueFu} sub={`${incompleteTours.length} post-tour pending`} tone={overdueFu || incompleteTours.length ? "destructive" : "default"} />
-          <KpiCard label="Conversion rate" value={`${conversion}%`} sub={`${booked} booked total`} tone="success" />
-          <KpiCard label="MRR closed" value={`₹${(monthlyRevenue / 1000).toFixed(0)}k`} sub={`${bookings.length} booking${bookings.length === 1 ? "" : "s"}`} tone="success" />
+          <KpiCard label="Total Leads" value={leads.length} sub={`${hotLeads.length} hot priority`} />
+          <KpiCard label="Today's Leads" value={leads.filter((l) => sameDay(+new Date(l.createdAt), now)).length} sub="Newly ingested" tone="accent" />
+          <KpiCard label="Converted Leads" value={leads.filter((l) => l.stage === "booked").length} sub={`${conversion}% conversion`} tone="success" />
+          <KpiCard label="Pending Leads" value={leads.filter((l) => l.stage !== "booked" && l.stage !== "dropped").length} sub={`${overdueFu} overdue`} tone={overdueFu ? "destructive" : "default"} />
+          <KpiCard label="MRR Closed" value={`₹${(monthlyRevenue / 1000).toFixed(0)}k`} sub={`${bookings.length} bookings`} tone="success" />
         </div>
+
+        {/* Visual Analytics Charts */}
+        <DashboardCharts leads={leads} />
 
         {/* Today's queue (top 5 quick view) */}
         <section className="rounded-xl border border-border bg-card overflow-hidden">

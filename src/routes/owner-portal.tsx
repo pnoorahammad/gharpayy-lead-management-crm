@@ -87,7 +87,7 @@ function OwnerPortalPage() {
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
         <Button asChild size="sm" variant="outline" className="h-9 justify-start text-xs">
-          <Link to="/owner"><ShieldCheck className="h-3.5 w-3.5 mr-1" /> Owner desk</Link>
+          <Link to="/owner" search={{ id: undefined, tab: undefined }}><ShieldCheck className="h-3.5 w-3.5 mr-1" /> Owner desk</Link>
         </Button>
         <Button asChild size="sm" variant="outline" className="h-9 justify-start text-xs">
           <Link to="/owner/rooms"><Bed className="h-3.5 w-3.5 mr-1" /> Update rooms</Link>

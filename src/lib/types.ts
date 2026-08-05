@@ -38,10 +38,21 @@ export interface Property {
   pricePerBed: number;
 }
 
+export type LeadPriority = "high" | "medium" | "low";
+
+export interface LeadNote {
+  id: string;
+  leadId: string;
+  author: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Lead {
   id: string;
   name: string;
   phone: string;
+  email?: string;
   source: string;
   budget: number;
   moveInDate: string;
@@ -49,8 +60,10 @@ export interface Lead {
   assignedTcmId: string;
   stage: LeadStage;
   intent: Intent;
+  priority: LeadPriority;
   confidence: number; // 0-100 (deal probability)
   tags: string[];
+  notes?: LeadNote[];
   nextFollowUpAt: string | null;
   responseSpeedMins: number; // first response time
   createdAt: string;

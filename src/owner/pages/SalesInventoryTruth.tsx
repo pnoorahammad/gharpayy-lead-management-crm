@@ -262,7 +262,7 @@ export function SalesInventoryTruth() {
                         <div className="font-medium">{r.pgName}</div>
                         <Link
                           to="/owner"
-                          search={{ id: r.ownerId }}
+                          search={{ id: r.ownerId, tab: undefined }}
                           className="text-[10px] text-accent hover:underline font-mono"
                         >
                           {r.ownerId} · {r.ownerName}

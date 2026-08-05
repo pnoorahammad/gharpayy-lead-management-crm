@@ -67,14 +67,20 @@ interface AppState {
 
   addProperty: (input: Omit<Property, "id" | "daysSinceLastBooking">) => Property;
 
+  updateLead: (id: string, patch: Partial<Lead>) => void;
+  deleteLead: (id: string) => void;
+  setLeadPriority: (id: string, priority: LeadPriority) => void;
+  addLeadNote: (id: string, text: string, author?: string) => void;
   addLead: (input: {
     name: string;
     phone: string;
+    email?: string;
     source?: string;
     budget: number;
     preferredArea: string;
     moveInDate?: string;
     intent?: Intent;
+    priority?: LeadPriority;
     assignedTcmId?: string;
     tags?: string[];
   }) => Lead;
@@ -482,6 +488,74 @@ export const useApp = create<AppState>((set, get) => ({
     return prop;
   },
 
+  updateLead: (id, patch) => {
+    set((s) => ({
+      leads: s.leads.map((l) =>
+        l.id === id ? { ...l, ...patch, updatedAt: new Date().toISOString() } : l,
+      ),
+    }));
+    pushActivity(set, get, {
+      kind: "status_changed",
+      actor: get().role,
+      leadId: id,
+      text: "Lead details updated",
+    });
+  },
+
+  deleteLead: (id) => {
+    const target = get().leads.find((l) => l.id === id);
+    set((s) => ({
+      leads: s.leads.filter((l) => l.id !== id),
+      tours: s.tours.filter((t) => t.leadId !== id),
+      followUps: s.followUps.filter((f) => f.leadId !== id),
+      selectedLeadId: s.selectedLeadId === id ? null : s.selectedLeadId,
+    }));
+    pushActivity(set, get, {
+      kind: "status_changed",
+      actor: get().role,
+      leadId: id,
+      text: `Lead deleted · ${target?.name ?? id}`,
+    });
+  },
+
+  setLeadPriority: (id, priority) => {
+    set((s) => ({
+      leads: s.leads.map((l) =>
+        l.id === id ? { ...l, priority, updatedAt: new Date().toISOString() } : l,
+      ),
+    }));
+    pushActivity(set, get, {
+      kind: "status_changed",
+      actor: get().role,
+      leadId: id,
+      text: `Priority updated to ${priority.toUpperCase()}`,
+    });
+  },
+
+  addLeadNote: (id, text, author) => {
+    const lead = get().leads.find((l) => l.id === id);
+    if (!lead) return;
+    const newNote = {
+      id: uid("n"),
+      leadId: id,
+      author: author || get().role,
+      text,
+      createdAt: new Date().toISOString(),
+    };
+    const updatedNotes = [...(lead.notes || []), newNote];
+    set((s) => ({
+      leads: s.leads.map((l) =>
+        l.id === id ? { ...l, notes: updatedNotes, updatedAt: new Date().toISOString() } : l,
+      ),
+    }));
+    pushActivity(set, get, {
+      kind: "note_added",
+      actor: get().role,
+      leadId: id,
+      text: `Note: ${text}`,
+    });
+  },
+
   addLead: (input) => {
     const nowIso = new Date().toISOString();
     const tcmId =
@@ -492,6 +566,7 @@ export const useApp = create<AppState>((set, get) => ({
           id: "tmp",
           stage: "new",
           intent: input.intent ?? "warm",
+          priority: input.priority ?? "medium",
           assignedTcmId: "",
           confidence: 50,
           tags: input.tags ?? [],
@@ -510,6 +585,7 @@ export const useApp = create<AppState>((set, get) => ({
       id: uid("l"),
       name: input.name.trim(),
       phone: input.phone.trim(),
+      email: input.email?.trim(),
       source: input.source ?? "Direct",
       budget: input.budget,
       moveInDate: input.moveInDate ?? nowIso,
@@ -517,8 +593,10 @@ export const useApp = create<AppState>((set, get) => ({
       assignedTcmId: tcmId,
       stage: "new",
       intent: input.intent ?? "warm",
+      priority: input.priority ?? "medium",
       confidence: input.intent === "hot" ? 70 : input.intent === "cold" ? 25 : 50,
       tags: input.tags ?? [],
+      notes: [],
       nextFollowUpAt: null,
       responseSpeedMins: 30,
       createdAt: nowIso,
